@@ -4,6 +4,9 @@ obj/
 *.user
 *.suo
 
+# Packaged release artifacts (regenerated per release)
+dist/
+
 # Save-data backup captured during dev — NOT for the public repo
 save-backup-*/
 *.mod
