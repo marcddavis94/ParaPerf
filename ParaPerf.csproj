@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>ParaPerf</AssemblyName>
+    <Product>ParaPerf</Product>
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <ParalivesDir>C:\Program Files (x86)\Steam\steamapps\common\Paralives</ParalivesDir>
+    <GameManaged>$(ParalivesDir)\Paralives_Data\Managed</GameManaged>
+    <BepInExCore>$(ParalivesDir)\BepInEx\core</BepInExCore>
+    <PluginsDir>$(ParalivesDir)\BepInEx\plugins</PluginsDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx"><HintPath>$(BepInExCore)\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(BepInExCore)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEngine"><HintPath>$(GameManaged)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameManaged)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Unity.Mathematics"><HintPath>$(GameManaged)\Unity.Mathematics.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Paralives"><HintPath>$(GameManaged)\Paralives.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <Target Name="DeployToGame" AfterTargets="Build">
+    <MakeDir Directories="$(PluginsDir)\$(AssemblyName)" ContinueOnError="true" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginsDir)\$(AssemblyName)" ContinueOnError="true" />
+    <Message Importance="high" Text="Deployed $(AssemblyName).dll to Paralives plugins folder." />
+  </Target>
+
+</Project>

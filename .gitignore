@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+
+# Save-data backup captured during dev — NOT for the public repo
+save-backup-*/
+*.mod
+
+# IDE
+.vs/
+.idea/
