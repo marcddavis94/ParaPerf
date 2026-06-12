@@ -40,6 +40,14 @@ namespace ParaPerf
         private static readonly List<List<Outcome>> _outcomePool = new List<List<Outcome>>();
         private static int _outcomeHigh;
 
+        // A single read-only empty MemoryData shared in place of BrainLogicManager.Process's per-call
+        // `new MemoryData()`. Safe because that instance is never written: in Process it is only read into
+        // ContextData/OutcomeData, and xref confirms only two OutcomeProcessors ever read OutcomeData.Memory
+        // (AddStatusEffectProcessor, OfferSkillWantForJobPerformanceProcessor) — both read fields synchronously,
+        // neither stores nor mutates it. When `memory != null` the game overwrites it with memory.Data anyway,
+        // so this just removes the throwaway allocation.
+        private static readonly MemoryData _emptyMemory = new MemoryData();
+
         // --- scope management (Prefix/Finalizer on Process) ---------------------------------------
         internal static long Enter()
         {
@@ -82,6 +90,10 @@ namespace ParaPerf
             return l;
         }
 
+        // Replaces `new MemoryData()` in Process — returns the shared read-only empty (vanilla `new` if disabled).
+        internal static MemoryData EmptyMemory()
+            => Plugin.PoolBrainLogicAllocs.Value ? _emptyMemory : new MemoryData();
+
         private static List<BrainLogicLine> RentLineList()
         {
             List<BrainLogicLine> l;
@@ -97,15 +109,22 @@ namespace ParaPerf
             MethodInfo rentLines = AccessTools.Method(typeof(BrainLogicPool), nameof(RentLines));
             MethodInfo rentOutcomes = AccessTools.Method(typeof(BrainLogicPool), nameof(RentOutcomes));
             MethodInfo rentRange = AccessTools.Method(typeof(BrainLogicPool), nameof(RentRange));
+            MethodInfo emptyMemory = AccessTools.Method(typeof(BrainLogicPool), nameof(EmptyMemory));
 
             foreach (CodeInstruction ins in instructions)
             {
-                // `new List<BrainLogicLine>()` / `new List<Outcome>()` (parameterless ctor only)
-                if (ins.opcode == OpCodes.Newobj && ins.operand is ConstructorInfo ci
-                    && ci.GetParameters().Length == 0 && IsList(ci.DeclaringType, out System.Type arg))
+                // `new List<BrainLogicLine>()` / `new List<Outcome>()` / `new MemoryData()` (parameterless ctor)
+                if (ins.opcode == OpCodes.Newobj && ins.operand is ConstructorInfo ci && ci.GetParameters().Length == 0)
                 {
-                    if (arg == typeof(BrainLogicLine)) { ins.opcode = OpCodes.Call; ins.operand = rentLines; }
-                    else if (arg == typeof(Outcome)) { ins.opcode = OpCodes.Call; ins.operand = rentOutcomes; }
+                    if (IsList(ci.DeclaringType, out System.Type arg))
+                    {
+                        if (arg == typeof(BrainLogicLine)) { ins.opcode = OpCodes.Call; ins.operand = rentLines; }
+                        else if (arg == typeof(Outcome)) { ins.opcode = OpCodes.Call; ins.operand = rentOutcomes; }
+                    }
+                    else if (ci.DeclaringType == typeof(MemoryData))
+                    {
+                        ins.opcode = OpCodes.Call; ins.operand = emptyMemory;   // share one read-only empty
+                    }
                 }
                 // `someList.GetRange(int, int)` where someList is List<BrainLogicLine>
                 else if ((ins.opcode == OpCodes.Callvirt || ins.opcode == OpCodes.Call) && ins.operand is MethodInfo mi

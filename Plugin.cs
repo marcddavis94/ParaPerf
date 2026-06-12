@@ -14,7 +14,7 @@ namespace ParaPerf
     {
         public const string PluginGuid = "com.marcusdavis2012.paraperf";
         public const string PluginName = "ParaPerf";
-        public const string PluginVersion = "0.3.0";
+        public const string PluginVersion = "0.4.0";
 
         internal static ManualLogSource Log;
 
