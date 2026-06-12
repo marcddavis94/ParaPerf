@@ -51,7 +51,7 @@ namespace ParaPerf
         // --- scope management (Prefix/Finalizer on Process) ---------------------------------------
         internal static long Enter()
         {
-            if (!Plugin.PoolBrainLogicAllocs.Value) return Sentinel;
+            if (!Plugin.On(Plugin.PoolBrainLogicAllocs)) return Sentinel;
             _depth++;
             return ((long)_lineHigh << 32) | (uint)_outcomeHigh;   // pack both high-water marks, no alloc
         }
@@ -92,7 +92,7 @@ namespace ParaPerf
 
         // Replaces `new MemoryData()` in Process — returns the shared read-only empty (vanilla `new` if disabled).
         internal static MemoryData EmptyMemory()
-            => Plugin.PoolBrainLogicAllocs.Value ? _emptyMemory : new MemoryData();
+            => Plugin.On(Plugin.PoolBrainLogicAllocs) ? _emptyMemory : new MemoryData();
 
         private static List<BrainLogicLine> RentLineList()
         {

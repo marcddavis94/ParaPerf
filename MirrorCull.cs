@@ -28,7 +28,7 @@ namespace ParaPerf
         {
             try
             {
-                if (!Plugin.MirrorFrustumCull.Value) return true;   // disabled → vanilla behaviour
+                if (!Plugin.On(Plugin.MirrorFrustumCull)) return true;   // disabled (or master off) → vanilla
 
                 PlayerManager pm = PlayerManager.Instance;
                 if (pm == null) return true;

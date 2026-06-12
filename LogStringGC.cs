@@ -29,7 +29,7 @@ namespace ParaPerf
         [HarmonyPatch(nameof(StaticLoggerUtils.GetUrledMsg))]
         private static bool GetUrledMsg(string msg, ref string __result)
         {
-            if (!Plugin.ReduceLogStringGC.Value) return true;   // disabled -> vanilla wrapper
+            if (!Plugin.On(Plugin.ReduceLogStringGC)) return true;   // disabled (or master off) -> vanilla wrapper
             __result = msg ?? "";                               // skip the <a href><color> wrapper alloc
             return false;                                       // skip the original
         }
@@ -38,7 +38,7 @@ namespace ParaPerf
         [HarmonyPatch(nameof(StaticLoggerUtils.GetUrledMsgError))]
         private static bool GetUrledMsgError(string msg, ref string __result)
         {
-            if (!Plugin.ReduceLogStringGC.Value) return true;
+            if (!Plugin.On(Plugin.ReduceLogStringGC)) return true;
             __result = msg ?? "";
             return false;
         }
@@ -47,7 +47,7 @@ namespace ParaPerf
         [HarmonyPatch(nameof(StaticLoggerUtils.GetUrledMsgGood))]
         private static bool GetUrledMsgGood(string msg, ref string __result)
         {
-            if (!Plugin.ReduceLogStringGC.Value) return true;
+            if (!Plugin.On(Plugin.ReduceLogStringGC)) return true;
             __result = msg ?? "";
             return false;
         }

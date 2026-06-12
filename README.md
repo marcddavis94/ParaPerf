@@ -38,6 +38,30 @@ The game's dev-logging helpers wrap messages in clickable-source-link markup con
 path. Where those are built eagerly (then discarded in shipping), ParaPerf returns the message unwrapped. Minor,
 fully safe — the message content is preserved, only the editor-link markup is dropped.
 
+## In-game panel & tools
+
+Press **`\`** (configurable — `General/MenuKey`) to open the ParaPerf panel:
+
+- **Master kill switch** — turn the whole mod inert (every fix reverts to vanilla) without uninstalling, handy
+  for A/B perf testing.
+- **Per-fix toggles** — mirror cull (+ a cull-radius slider), brain-logic alloc pool, log-string GC. A fix runs
+  only if the master switch *and* its own toggle are on.
+- **Debug** — an FPS / frame-time overlay, and the game's own navmesh load-timing log.
+
+An **"ParaPerf active"** toast confirms when the fixes go live (they load at startup but only take effect once
+you're in-world; the toast marks that moment). Toggle it with `General/ShowActivationToast`.
+
+### Lag-spike bookmarker
+
+Hit something stuttery? Press **`K`** (configurable). ParaPerf continuously ring-buffers the last few seconds of
+frames, so the key bookmarks the **worst recent frame** — its time, how many × the norm it was, and **which systems
+ate it** — to `BepInEx/ParaPerf/lag-markers.log`. Enable **Lag capture** in the panel first for per-system
+attribution (it has a small profiler cost, so it's opt-in; pressing `K` auto-enables it). There's also an
+**auto-mark** option that bookmarks big spikes on its own. Great for diagnosing — and for sending the author a
+concrete marker log instead of "it lags sometimes."
+
+> Note: `\` (and `K`) may collide with other mods' panels — both are rebindable in the config.
+
 ## Install
 
 1. Install [BepInEx 5 (x64)](https://github.com/BepInEx/BepInEx/releases) into your Paralives folder.
