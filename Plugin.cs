@@ -17,7 +17,7 @@ namespace ParaPerf
     {
         public const string PluginGuid = "com.marcusdavis2012.paraperf";
         public const string PluginName = "ParaPerf";
-        public const string PluginVersion = "0.5.2";
+        public const string PluginVersion = "0.7.0";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -47,6 +47,17 @@ namespace ParaPerf
         // scratch lists every frame for every visual-loaded Para (~205-226 KB/frame). A transpiler pools
         // those lists without touching the interpreter's logic. Disable to A/B or if any sim oddity appears.
         internal static ConfigEntry<bool> PoolBrainLogicAllocs;
+
+        // --- Hover material churn (SAFE) ----------------------------------------------------------
+        // UpdateHover (per-player) clears hover on the whole roster every frame; CharacterVisual.SetHovered
+        // rebuilds the renderer's materials with no already-in-state guard (~99 Material[] allocs +
+        // reassignments per player per frame). We skip the rebuild when the hover state is unchanged.
+        internal static ConfigEntry<bool> HoverChurnSkip;
+
+        // --- Status-effect value GC (SAFE) --------------------------------------------------------
+        // StatusEffectManager.GetStatusEffectValueForEffectType allocates a throwaway List every call (need +
+        // skill reads, every frame across the roster). We compute the value inline with no list.
+        internal static ConfigEntry<bool> TrimStatusEffectGC;
 
         // --- Menu + master switch -----------------------------------------------------------------
         // A small in-game panel (default key '\') with a master kill switch, per-fix toggles, and
@@ -93,6 +104,17 @@ namespace ParaPerf
                 "every frame for every Para's brain logic (the measured ~205-226 KB/frame GC-stutter source). " +
                 "Uses a Harmony transpiler that swaps only the allocation instructions — the interpreter's logic " +
                 "is byte-identical. If you ever notice Paras behaving oddly, set this false and report it.");
+
+            HoverChurnSkip = Config.Bind("Allocations", "HoverChurnSkip", true,
+                "SAFE. The hover system rebuilds every character's outline materials each frame even when nothing " +
+                "is hovered (~99 material-array allocations + reassignments per player per frame). This skips the " +
+                "rebuild when a character's hover state hasn't changed. Especially impactful in splitscreen (the " +
+                "cost is per-player). Behaviour-identical.");
+
+            TrimStatusEffectGC = Config.Bind("Allocations", "TrimStatusEffectGC", true,
+                "SAFE. Status-effect value lookups (needs + skills, read every frame for the whole roster) allocate " +
+                "a throwaway List on every call. This computes the value inline with no allocation — same result, " +
+                "less GC. Helps frame consistency, especially in splitscreen where a GC pause stalls both views.");
 
             MasterEnabled = Config.Bind("General", "MasterEnabled", true,
                 "Master switch for ALL ParaPerf fixes. Uncheck to make the whole mod inert (every fix reverts to " +
