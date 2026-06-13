@@ -16,6 +16,19 @@ namespace ParaPerf
         }
     }
 
+    // Primary tick driver: the simulation loop runs every frame in-game regardless of cursor/gamepad state, so
+    // the menu / lag tool / activation toast come alive immediately instead of waiting for the cursor system to
+    // wake up (which, in gamepad splitscreen, didn't happen until the pause menu was opened). Plugin.Tick is
+    // frame-guarded, so being driven by both this and the CursorManager hook is harmless.
+    [HarmonyPatch(typeof(SystemManager), "Update")]
+    internal static class SimTickPatch
+    {
+        private static void Postfix()
+        {
+            try { Plugin.Instance?.Tick(); } catch { }
+        }
+    }
+
     // The '\' debug panel: master kill switch, per-fix toggles, debug options, and an optional FPS overlay.
     public class ParaPerfMenu : MonoBehaviour
     {

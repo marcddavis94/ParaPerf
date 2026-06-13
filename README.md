@@ -53,6 +53,15 @@ consistency, especially in splitscreen where a GC pause stalls both views.
 > hardening splitscreen/co-op: a GC pause janks *every* viewport at once, so trimming per-frame allocations is
 > the simulation-side stability lever (rendering each viewport is GPU-bound and outside a mod's reach).
 
+### 6. Startup framerate fix  *(`Fixes/FixStartupFrameCap`, default on)*
+Vanilla Paralives runs at a **low framerate at launch** and only jumps to full speed once you open the Options
+menu and close it — a known annoyance. Opening Settings clears a CPU-side per-frame stall as a *side effect*
+(confirmed by instrumentation: **no** graphics or quality value actually changes when the framerate jumps — it
+isn't a video-setting re-apply). Rather than guess at the cause, ParaPerf simply automates the trip: a few
+frames after you're in-world it opens the **real** Options window (`UI.Get<UIOptions>().Show()` — the exact
+instance the Settings button creates), holds it for ~12 frames, and closes it. You'll see a brief settings
+flicker on load, then full framerate immediately — no manual menu trip needed.
+
 ## In-game panel & tools
 
 Press **`\`** (configurable — `General/MenuKey`) to open the ParaPerf panel:

@@ -17,7 +17,7 @@ namespace ParaPerf
     {
         public const string PluginGuid = "com.marcusdavis2012.paraperf";
         public const string PluginName = "ParaPerf";
-        public const string PluginVersion = "0.7.0";
+        public const string PluginVersion = "0.8.2";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -58,6 +58,13 @@ namespace ParaPerf
         // StatusEffectManager.GetStatusEffectValueForEffectType allocates a throwaway List every call (need +
         // skill reads, every frame across the roster). We compute the value inline with no list.
         internal static ConfigEntry<bool> TrimStatusEffectGC;
+
+        // --- Startup menu blip (launch framerate fix) ---------------------------------------------
+        // Paralives runs at a low framerate at launch until the Options window is opened ONCE. Opening
+        // Settings clears a CPU-side stall as a side effect (confirmed: no graphics/quality value actually
+        // changes when fps jumps). So we drive the real window — UI.Get<UIOptions>().Show() for a few frames,
+        // then Hide() — automating the human's "open Settings and close it" trip. Brief flicker on load.
+        internal static ConfigEntry<bool> FixStartupFrameCap;
 
         // --- Menu + master switch -----------------------------------------------------------------
         // A small in-game panel (default key '\') with a master kill switch, per-fix toggles, and
@@ -116,6 +123,12 @@ namespace ParaPerf
                 "a throwaway List on every call. This computes the value inline with no allocation — same result, " +
                 "less GC. Helps frame consistency, especially in splitscreen where a GC pause stalls both views.");
 
+            FixStartupFrameCap = Config.Bind("Fixes", "FixStartupFrameCap", true,
+                "EXPERIMENTAL. Paralives runs at a low framerate at launch until you open & close the Options menu " +
+                "(a vanilla bug). Rather than guess what the menu does, this opens the real Options window for a few " +
+                "frames at load and closes it — automating the trip. You may see a brief settings-window flicker on " +
+                "load. Turn off if it causes issues.");
+
             MasterEnabled = Config.Bind("General", "MasterEnabled", true,
                 "Master switch for ALL ParaPerf fixes. Uncheck to make the whole mod inert (every fix reverts to " +
                 "vanilla) without uninstalling — useful for A/B perf testing. Also toggleable in the '\\' menu.");
@@ -168,11 +181,25 @@ namespace ParaPerf
         private bool _menuSpawned;
         private long _lastMenuKeyFrame = -1L;
         private long _lastMarkKeyFrame = -1L;
+        private long _lastTickFrame = -1L;
 
+        // Startup menu-blip state (the launch framerate fix).
+        private bool _blipDone;
+        private long _engagedFrame = -1L;
+        private long _blipShowFrame = -1L;
+        private UIOptions _blipWindow;
+
+        // Driven from MULTIPLE hooks (SystemManager.Update in-game + CursorManager.LateUpdate as a menu-screen
+        // backup) so the menu / lag tool / toast come alive on the first frame regardless of cursor state — the
+        // old single CursorManager.LateUpdate driver didn't fire until the cursor system woke up (e.g. opening
+        // the pause menu in gamepad/splitscreen play). This guard collapses the multiple callers to once/frame.
         internal void Tick()
         {
             try
             {
+                if (Time.frameCount == _lastTickFrame) return;
+                _lastTickFrame = Time.frameCount;
+
                 // The menu MonoBehaviour must live on a GameObject spawned from the LIVE loop — objects
                 // created during the BepInEx bootstrap don't tick, but ones created here (and their
                 // Update()/OnGUI()) do.
@@ -195,8 +222,44 @@ namespace ParaPerf
                     {
                         Engaged = true;
                         EngagedTime = Time.unscaledTime;
+                        _engagedFrame = Time.frameCount;
                         Log.LogInfo("ParaPerf engaged — performance fixes are now active in-world.");
                     }
+                }
+
+                // STARTUP MENU BLIP — the launch framerate fix. Paralives runs at a low framerate at launch
+                // until the Options window is opened once; opening Settings clears a CPU-side stall as a SIDE
+                // EFFECT (confirmed: no graphics/quality value actually changes). Rather than guess what it does,
+                // we drive the REAL window: UI.Get<UIOptions>() instantiates-or-returns the exact instance the
+                // Settings button uses, we Show() it for a few frames, then Hide() it. Brief settings flicker on
+                // load is expected and harmless.
+                if (On(FixStartupFrameCap) && Engaged && !_blipDone)
+                {
+                    try
+                    {
+                        if (_blipShowFrame < 0)
+                        {
+                            // Let the UI system + world fully come up before driving the window.
+                            if (_engagedFrame >= 0 && Time.frameCount - _engagedFrame > 30 && UI.Instance != null)
+                            {
+                                _blipWindow = UI.Get<UIOptions>();
+                                if (_blipWindow != null)
+                                {
+                                    _blipWindow.Show();
+                                    _blipShowFrame = Time.frameCount;
+                                    Log.LogInfo("[Blip] Opened real Options window to clear the startup framerate stall.");
+                                }
+                                else { _blipDone = true; Log.LogWarning("[Blip] UIOptions prefab not found — skipping startup blip."); }
+                            }
+                        }
+                        else if (Time.frameCount - _blipShowFrame > 12)
+                        {
+                            if (_blipWindow != null) _blipWindow.Hide();
+                            _blipDone = true;
+                            Log.LogInfo("[Blip] Closed Options window — startup framerate blip complete.");
+                        }
+                    }
+                    catch (System.Exception e) { _blipDone = true; Log.LogWarning("ParaPerf startup blip failed: " + e.Message); }
                 }
 
                 if (Input.GetKeyDown(MenuKey.Value) && Time.frameCount != _lastMenuKeyFrame)
