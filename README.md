@@ -38,6 +38,21 @@ The game's dev-logging helpers wrap messages in clickable-source-link markup con
 path. Where those are built eagerly (then discarded in shipping), ParaPerf returns the message unwrapped. Minor,
 fully safe — the message content is preserved, only the editor-link markup is dropped.
 
+### 4. Hover material churn  *(`Allocations/HoverChurnSkip`, default on)*
+The hover system rebuilds every character's outline materials each frame even when nothing is hovered — about
+99 material-array allocations + Unity material reassignments **per player** per frame. This skips the rebuild
+when a character's hover state hasn't changed. Behaviour-identical, and especially impactful in splitscreen
+(the cost is per-player).
+
+### 5. Status-effect value GC  *(`Allocations/TrimStatusEffectGC`, default on)*
+Status-effect value lookups (needs + skills, read every frame across the whole roster) allocated a throwaway
+`List` on every call. ParaPerf computes the value inline with no allocation — same result, less GC. Helps frame
+consistency, especially in splitscreen where a GC pause stalls both views.
+
+> Fixes #4 and #5 came from a multi-agent audit of the game files plus live 2-player profiling, aimed at
+> hardening splitscreen/co-op: a GC pause janks *every* viewport at once, so trimming per-frame allocations is
+> the simulation-side stability lever (rendering each viewport is GPU-bound and outside a mod's reach).
+
 ## In-game panel & tools
 
 Press **`\`** (configurable — `General/MenuKey`) to open the ParaPerf panel:
